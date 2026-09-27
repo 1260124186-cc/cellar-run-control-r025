@@ -14,11 +14,24 @@ type formulaView struct {
 	Steps   []domain.FormulaStep `json:"steps"`
 }
 
+type maintenanceWindowView struct {
+	ID          string                  `json:"id"`
+	StartsAt    time.Time               `json:"starts_at"`
+	EndsAt      time.Time               `json:"ends_at"`
+	State       domain.MaintenanceState `json:"state"`
+	CancelledAt *time.Time              `json:"cancelled_at"`
+}
+
 type vesselView struct {
-	ID          string             `json:"id"`
-	State       domain.VesselState `json:"state"`
-	Version     int64              `json:"version"`
-	ActiveRunID *string            `json:"active_run_id"`
+	ID                      string                  `json:"id"`
+	State                   domain.VesselState      `json:"state"`
+	Version                 int64                   `json:"version"`
+	ActiveRunID             *string                 `json:"active_run_id"`
+	MaintenanceWindows      []maintenanceWindowView `json:"maintenance_windows"`
+	AvailableForReservation bool                    `json:"available_for_reservation"`
+	BlockedReason           string                  `json:"blocked_reason"`
+	ActiveMaintenanceID     *string                 `json:"active_maintenance_window_id"`
+	NextMaintenanceID       *string                 `json:"next_maintenance_window_id"`
 }
 
 type runView struct {

@@ -48,7 +48,8 @@ States are `draft`, `approved`, and `retired`.
 ### Vessel
 
 A vessel contains an identifier, unique display code, capacity in liters,
-lifecycle state, active run identifier, version, and timestamps.
+lifecycle state, active run identifier, ordered maintenance windows, derived
+reservation-availability facts, version, and timestamps.
 
 States are `available`, `reserved`, `in_use`, `cleaning`, and `retired`.
 
@@ -60,6 +61,27 @@ States are `available`, `reserved`, `in_use`, `cleaning`, and `retired`.
   aborted.
 - Finishing cleaning releases the vessel to available.
 - A vessel with an active run cannot be retired or directly reserved.
+
+Maintenance windows are half-open intervals `[starts_at, ends_at)` carrying an
+identifier, optional note, state (`scheduled` or `cancelled`), and timestamps.
+
+- Windows may be supplied at registration or scheduled later for an available
+  vessel without an active run; maintenance never displaces a reserved,
+  in-use, or cleaning task.
+- `starts_at` must be strictly in the future and `ends_at` strictly later.
+- Scheduled windows of the same vessel must not overlap; windows touching only
+  at a boundary do not overlap.
+- A reservation made while a scheduled window is in effect is rejected with a
+  stable conflict; a reservation made before a future window starts is
+  accepted, and a started run is never silently preempted.
+- A scheduled active or future window can be cancelled; cancelling restores
+  availability when no other window is active. Repeat cancellation, cancelling
+  an ended window, and an unknown window identifier fail with stable codes.
+- A vessel with an open scheduled window cannot be retired until the window is
+  cancelled or expires; window history is preserved.
+- Vessel details, vessel lists, and run reservation/start/abort/complete
+  responses derive the same availability fact: `available_for_reservation`,
+  `blocked_reason`, the active window, and the next upcoming window.
 
 ### FermentationRun
 
@@ -133,7 +155,30 @@ produce stable failures without changing vessel or run state.
 This path crosses HTTP protocol handling, application orchestration, domain
 rules, storage coordination, and resource lifecycle.
 
-### 3. Observations And Completion
+### 3. Vessel Maintenance Windows
+
+Public entry points are:
+
+- `POST /v1/vessels`
+- `POST /v1/vessels/{id}/maintenance`
+- `POST /v1/vessels/{id}/maintenance/{windowId}/cancel`
+- `GET /v1/vessels/{id}`
+- `GET /v1/vessels`
+- `POST /v1/runs/{id}/reserve`
+- `POST /v1/vessels/{id}/retire`
+
+The operator registers a vessel with future maintenance windows or schedules a
+window later, observes the derived availability facts, confirms that a
+reservation is rejected while a window is in effect, cancels a window, and
+retires the vessel only after every open window is cleared. Invalid times,
+overlapping windows, maintenance requested against a busy vessel, and unknown
+or already-cancelled windows return stable errors without partial writes.
+
+This path crosses HTTP protocol handling, application orchestration, time-based
+domain rules, storage coordination, and the shared availability projection
+read by vessel and run entry points.
+
+### 4. Observations And Completion
 
 Public entry points are:
 
@@ -217,6 +262,7 @@ behavior, and exit without external services:
 - `go run ./cmd/fermentctl check formula-approval`
 - `go run ./cmd/fermentctl check vessel-run-lifecycle`
 - `go run ./cmd/fermentctl check observations-completion`
+- `go run ./cmd/fermentctl check vessel-maintenance`
 
 ## Scope Limits
 

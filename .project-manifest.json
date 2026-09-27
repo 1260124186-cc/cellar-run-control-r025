@@ -113,6 +113,27 @@
         "domain",
         "storage"
       ]
+    },
+    {
+      "id": "vessel-maintenance",
+      "name": "Schedule future maintenance windows and keep availability consistent",
+      "entry": "POST /v1/vessels/{id}/maintenance",
+      "steps": [
+        "register a vessel with future windows and reject overlapping windows",
+        "reject a reservation landing inside an active maintenance window",
+        "cancel a window and verify availability is restored",
+        "confirm running tasks cannot be displaced and retirement waits for open windows",
+        "read the same availability fact from detail, list, run entry, and a reloaded snapshot"
+      ],
+      "success": "returns the ordered schedule and one derived availability fact",
+      "failure": "returns a stable invalid-time, overlap, state, not-found, or revision conflict",
+      "verification": "the check issues real HTTP requests and reopens the snapshot to verify persistence",
+      "module_ids": [
+        "httpapi",
+        "service",
+        "domain",
+        "storage"
+      ]
     }
   ]
 }

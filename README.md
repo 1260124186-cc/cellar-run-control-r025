@@ -79,6 +79,8 @@ Vessel workflow:
 - `POST /v1/vessels`
 - `GET /v1/vessels`
 - `GET /v1/vessels/{id}`
+- `POST /v1/vessels/{id}/maintenance`
+- `POST /v1/vessels/{id}/maintenance/{windowId}/cancel`
 - `POST /v1/vessels/{id}/finish-cleaning`
 - `POST /v1/vessels/{id}/retire`
 
@@ -107,6 +109,41 @@ shape:
 }
 ```
 
+## Maintenance Windows
+
+An operator can register future maintenance windows for an available vessel.
+Windows are half-open intervals `[starts_at, ends_at)`: `starts_at` is in the
+future, `ends_at` is strictly later, and windows of the same vessel cannot
+overlap (two windows that only touch at a boundary are allowed). Windows may be
+supplied at vessel creation or added afterwards via
+`POST /v1/vessels/{id}/maintenance`; a window is removed from consideration
+through `POST /v1/vessels/{id}/maintenance/{windowId}/cancel`.
+
+Availability is exposed as one derived fact on every vessel response (details,
+list entries, and the vessel returned by run reserve/start/abort/complete):
+
+- `available_for_reservation`: whether the vessel can be reserved now.
+- `blocked_reason`: one of `retired`, `active_run`, `maintenance_window`, or
+  `vessel_state`, present exactly when the vessel is not reservable.
+- `active_maintenance_window_id`: the scheduled window currently in effect.
+- `next_maintenance_window_id`: the next scheduled window that has not started.
+- `maintenance_windows`: the full ordered schedule, including cancelled and
+  expired windows for history.
+
+Rules kept consistent across every entry point:
+
+- A future window does not block a reservation made before it starts. A
+  reservation attempted while a window is in effect is rejected with
+  `maintenance_window_conflict`, with no partial change to vessel or run.
+- Maintenance can only be scheduled for an `available` vessel without a run;
+  an already reserved, running, or cleaning task is never displaced.
+- Cancelling the active window restores reservation availability immediately;
+  cancelling twice, cancelling an ended window, and unknown window ids return
+  stable error codes.
+- A vessel with an open (active or future) scheduled window cannot be retired;
+  the windows must be cancelled or expire first. Window history is preserved
+  across retirement and process restarts.
+
 ## Workflow Checks
 
 Run each production workflow check separately:
@@ -115,6 +152,7 @@ Run each production workflow check separately:
 go run ./cmd/fermentctl check formula-approval
 go run ./cmd/fermentctl check vessel-run-lifecycle
 go run ./cmd/fermentctl check observations-completion
+go run ./cmd/fermentctl check vessel-maintenance
 ```
 
 Each check creates a temporary snapshot directory, starts the real HTTP

@@ -28,6 +28,20 @@ type VersionInput struct {
 type CreateVesselInput struct {
 	Code      string
 	CapacityL float64
+	Windows   []MaintenanceWindowInput
+}
+
+type MaintenanceWindowInput struct {
+	StartsAt time.Time
+	EndsAt   time.Time
+	Note     string
+}
+
+type ScheduleMaintenanceInput struct {
+	ExpectedVersion *int64
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Note            string
 }
 
 type CreateRunInput struct {

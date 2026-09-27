@@ -101,5 +101,5 @@ func (s *Service) CompleteRun(
 	if err != nil {
 		return domain.FermentationRun{}, domain.Vessel{}, err
 	}
-	return updatedRun, updatedVessel, nil
+	return updatedRun, updatedVessel.EvaluateAvailability(s.clock.Now()), nil
 }

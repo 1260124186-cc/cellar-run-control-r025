@@ -96,7 +96,7 @@ func (s *Service) ReserveRun(
 	if err != nil {
 		return domain.FermentationRun{}, domain.Vessel{}, err
 	}
-	return updatedRun, updatedVessel, nil
+	return updatedRun, updatedVessel.EvaluateAvailability(s.clock.Now()), nil
 }
 
 func (s *Service) StartRun(
@@ -135,7 +135,7 @@ func (s *Service) StartRun(
 	if err != nil {
 		return domain.FermentationRun{}, domain.Vessel{}, err
 	}
-	return updatedRun, updatedVessel, nil
+	return updatedRun, updatedVessel.EvaluateAvailability(s.clock.Now()), nil
 }
 
 func (s *Service) AbortRun(
@@ -144,6 +144,7 @@ func (s *Service) AbortRun(
 ) (domain.FermentationRun, domain.Vessel, error) {
 	var updatedRun domain.FermentationRun
 	var updatedVessel domain.Vessel
+	vesselChanged := false
 	err := s.store.Execute(func(snapshot *domain.Snapshot) error {
 		run, ok := snapshot.Runs[id]
 		if !ok {
@@ -170,6 +171,7 @@ func (s *Service) AbortRun(
 			}
 			snapshot.Vessels[vessel.ID] = vessel
 			updatedVessel = vessel
+			vesselChanged = true
 		}
 		snapshot.Runs[id] = run.Clone()
 		updatedRun = run.Clone()
@@ -177,6 +179,9 @@ func (s *Service) AbortRun(
 	})
 	if err != nil {
 		return domain.FermentationRun{}, domain.Vessel{}, err
+	}
+	if vesselChanged {
+		updatedVessel = updatedVessel.EvaluateAvailability(s.clock.Now())
 	}
 	return updatedRun, updatedVessel, nil
 }

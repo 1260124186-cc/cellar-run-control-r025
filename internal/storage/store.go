@@ -106,6 +106,9 @@ func validateIndexes(value domain.Snapshot) error {
 			return fmt.Errorf("vessel index contains a duplicate code")
 		}
 		expectedVessels[vessel.Code] = id
+		if err := validateVesselMaintenance(id, vessel); err != nil {
+			return err
+		}
 	}
 	if err := compareIndexes("vessel code", value.VesselIndex, expectedVessels); err != nil {
 		return err
@@ -170,4 +173,38 @@ func (s *Store) Update(expected *int64, mutate func(*domain.Snapshot) error) err
 
 func (s *Store) Execute(mutator func(*domain.Snapshot) error) error {
 	return s.Update(nil, mutator)
+}
+
+// validateVesselMaintenance guards startup snapshots against internally
+// inconsistent maintenance schedules: every window needs a unique identifier
+// and a sane shape, and scheduled windows of the same vessel must not overlap.
+// Historical snapshots may legitimately contain windows that were scheduled in
+// the past, so relative "in the future" rules are not applied here.
+func validateVesselMaintenance(vesselID string, vessel domain.Vessel) error {
+	seen := make(map[string]struct{}, len(vessel.MaintenanceWindows))
+	for _, window := range vessel.MaintenanceWindows {
+		if window.ID == "" {
+			return fmt.Errorf("vessel %s has a maintenance window without an id", vesselID)
+		}
+		if _, duplicate := seen[window.ID]; duplicate {
+			return fmt.Errorf("vessel %s has a duplicate maintenance window id", vesselID)
+		}
+		seen[window.ID] = struct{}{}
+		if window.State != domain.MaintenanceScheduled &&
+			window.State != domain.MaintenanceCancelled {
+			return fmt.Errorf("vessel %s has a maintenance window in an unknown state", vesselID)
+		}
+		if window.StartsAt.IsZero() || window.EndsAt.IsZero() ||
+			!window.EndsAt.After(window.StartsAt) {
+			return fmt.Errorf("vessel %s has a maintenance window with invalid bounds", vesselID)
+		}
+	}
+	for i := range vessel.MaintenanceWindows {
+		for j := i + 1; j < len(vessel.MaintenanceWindows); j++ {
+			if domain.WindowsOverlap(vessel.MaintenanceWindows[i], vessel.MaintenanceWindows[j]) {
+				return fmt.Errorf("vessel %s has overlapping scheduled maintenance windows", vesselID)
+			}
+		}
+	}
+	return nil
 }
