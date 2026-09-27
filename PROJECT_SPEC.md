@@ -48,7 +48,8 @@ States are `draft`, `approved`, and `retired`.
 ### Vessel
 
 A vessel contains an identifier, unique display code, capacity in liters,
-lifecycle state, active run identifier, version, and timestamps.
+lifecycle state, active run identifier, scheduled maintenance windows,
+version, and timestamps.
 
 States are `available`, `reserved`, `in_use`, `cleaning`, and `retired`.
 
@@ -60,6 +61,17 @@ States are `available`, `reserved`, `in_use`, `cleaning`, and `retired`.
   aborted.
 - Finishing cleaning releases the vessel to available.
 - A vessel with an active run cannot be retired or directly reserved.
+- Only an available vessel accepts a new maintenance window, so a reserved
+  or started run is never displaced by a maintenance booking.
+- A maintenance window starts strictly in the future, ends after it starts,
+  and never overlaps another window on the same vessel; windows that only
+  touch at a boundary are allowed.
+- Windows are half-open intervals: a reservation or start is rejected with
+  `vessel_unavailable` only while a window covers the current moment.
+- Canceling a window is allowed in any vessel state and frees the vessel
+  immediately; canceling an unknown window returns `maintenance_not_found`.
+- A vessel with pending maintenance cannot be retired until its windows are
+  canceled or have elapsed.
 
 ### FermentationRun
 
@@ -150,6 +162,27 @@ transitions return stable failures without changing persisted state.
 This path crosses HTTP protocol handling, application orchestration, numeric
 domain rules, and snapshot storage.
 
+### 4. Vessel Maintenance Windows
+
+Public entry points are:
+
+- `POST /v1/vessels`
+- `POST /v1/vessels/{id}/maintenance`
+- `POST /v1/vessels/{id}/maintenance/{windowId}/cancel`
+- `POST /v1/runs/{id}/reserve`
+- `POST /v1/vessels/{id}/retire`
+- `GET /v1/vessels/{id}`
+
+The client registers a vessel, schedules future maintenance windows, observes
+reservation refusals while a window is active, cancels a window, and retires
+the vessel once no maintenance remains. Overlapping windows, past or reversed
+time ranges, stale versions, repeated cancels, scheduling on a reserved or
+in-use vessel, and retirement with pending maintenance return stable failures
+without changing vessel or run state.
+
+This path crosses HTTP protocol handling, application orchestration, domain
+rules, storage coordination, and resource lifecycle.
+
 ## Modules
 
 - `cmd/fermentctl`: executable entry point for the HTTP service and bounded
@@ -210,13 +243,14 @@ task owns systematic tests for validation boundaries, state transitions,
 numeric calculations, stale revisions, storage failures, and concurrent
 reservation attempts.
 
-The current build command is `go build ./...`. Three bounded production checks
+The current build command is `go build ./...`. Four bounded production checks
 start the real HTTP handler, issue real JSON requests, check success and failure
 behavior, and exit without external services:
 
 - `go run ./cmd/fermentctl check formula-approval`
 - `go run ./cmd/fermentctl check vessel-run-lifecycle`
 - `go run ./cmd/fermentctl check observations-completion`
+- `go run ./cmd/fermentctl check vessel-maintenance`
 
 ## Scope Limits
 

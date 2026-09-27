@@ -17,6 +17,8 @@ const (
 	CodeVesselConflict      Code = "vessel_code_conflict"
 	CodeVesselUnavailable   Code = "vessel_unavailable"
 	CodeVesselState         Code = "invalid_vessel_state"
+	CodeMaintenanceNotFound Code = "maintenance_not_found"
+	CodeMaintenanceConflict Code = "maintenance_conflict"
 	CodeRunNotFound         Code = "run_not_found"
 	CodeRunConflict         Code = "run_code_conflict"
 	CodeRunState            Code = "invalid_run_state"

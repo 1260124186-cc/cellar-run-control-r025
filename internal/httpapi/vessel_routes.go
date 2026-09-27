@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/1260124186-cc/solo-0016-cellar-run-control/internal/service"
 )
@@ -9,6 +10,12 @@ import (
 type createVesselRequest struct {
 	Code      string  `json:"code"`
 	CapacityL float64 `json:"capacity_liters"`
+}
+
+type scheduleMaintenanceRequest struct {
+	StartsAt time.Time `json:"starts_at"`
+	EndsAt   time.Time `json:"ends_at"`
+	Reason   string    `json:"reason"`
 }
 
 func registerVesselRoutes(mux *http.ServeMux, app *service.Service) {
@@ -53,6 +60,44 @@ func registerVesselRoutes(mux *http.ServeMux, app *service.Service) {
 		}
 		vessel, err := app.FinishCleaning(request.PathValue("id"),
 			service.FinishCleaningInput{ExpectedVersion: expected})
+		if err != nil {
+			writeDomainError(response, err)
+			return
+		}
+		writeJSON(response, http.StatusOK, vessel)
+	})
+
+	mux.HandleFunc("POST /v1/vessels/{id}/maintenance", func(response http.ResponseWriter, request *http.Request) {
+		body, err := decodeJSON[scheduleMaintenanceRequest](response, request)
+		if !handleDecode(response, err) {
+			return
+		}
+		expected, err := expectedVersion(request)
+		if !handleDecode(response, err) {
+			return
+		}
+		vessel, err := app.ScheduleMaintenance(request.PathValue("id"),
+			service.ScheduleMaintenanceInput{
+				ExpectedVersion: expected,
+				StartsAt:        body.StartsAt,
+				EndsAt:          body.EndsAt,
+				Reason:          body.Reason,
+			})
+		if err != nil {
+			writeDomainError(response, err)
+			return
+		}
+		writeJSON(response, http.StatusCreated, vessel)
+	})
+
+	mux.HandleFunc("POST /v1/vessels/{id}/maintenance/{windowId}/cancel", func(response http.ResponseWriter, request *http.Request) {
+		expected, err := expectedVersion(request)
+		if !handleDecode(response, err) {
+			return
+		}
+		vessel, err := app.CancelMaintenance(request.PathValue("id"),
+			request.PathValue("windowId"),
+			service.VersionInput{ExpectedVersion: expected})
 		if err != nil {
 			writeDomainError(response, err)
 			return

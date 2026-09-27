@@ -9,12 +9,13 @@ import (
 func (s *Service) CreateVessel(input CreateVesselInput) (domain.Vessel, error) {
 	now := s.clock.Now()
 	vessel := domain.Vessel{
-		Code:      domain.NormalizeVesselCode(input.Code),
-		CapacityL: input.CapacityL,
-		State:     domain.VesselAvailable,
-		Version:   1,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Code:        domain.NormalizeVesselCode(input.Code),
+		CapacityL:   input.CapacityL,
+		State:       domain.VesselAvailable,
+		Maintenance: []domain.MaintenanceWindow{},
+		Version:     1,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	if err := vessel.Validate(); err != nil {
 		return domain.Vessel{}, err

@@ -19,6 +19,13 @@ type vesselView struct {
 	State       domain.VesselState `json:"state"`
 	Version     int64              `json:"version"`
 	ActiveRunID *string            `json:"active_run_id"`
+	Maintenance []maintenanceView  `json:"maintenance_windows"`
+}
+
+type maintenanceView struct {
+	ID       string    `json:"id"`
+	StartsAt time.Time `json:"starts_at"`
+	EndsAt   time.Time `json:"ends_at"`
 }
 
 type runView struct {

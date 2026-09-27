@@ -78,6 +78,14 @@ func normalizeSnapshot(value domain.Snapshot) (domain.Snapshot, error) {
 	if value.RunIndex == nil {
 		value.RunIndex = map[string]string{}
 	}
+	for id, vessel := range value.Vessels {
+		if vessel.Maintenance == nil {
+			vessel.Maintenance = []domain.MaintenanceWindow{}
+		} else {
+			domain.SortMaintenanceWindows(vessel.Maintenance)
+		}
+		value.Vessels[id] = vessel
+	}
 	if err := validateIndexes(value); err != nil {
 		return domain.Snapshot{}, err
 	}

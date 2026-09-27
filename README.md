@@ -79,8 +79,16 @@ Vessel workflow:
 - `POST /v1/vessels`
 - `GET /v1/vessels`
 - `GET /v1/vessels/{id}`
+- `POST /v1/vessels/{id}/maintenance`
+- `POST /v1/vessels/{id}/maintenance/{windowId}/cancel`
 - `POST /v1/vessels/{id}/finish-cleaning`
 - `POST /v1/vessels/{id}/retire`
+
+Maintenance windows are half-open intervals scheduled on an available vessel.
+A run reservation or start that falls inside an active window is rejected with
+`vessel_unavailable`; a reserved or started run can never be displaced by a
+new window. Vessel detail and list responses expose the same
+`maintenance_windows` the reservation path enforces.
 
 Run workflow:
 
@@ -115,6 +123,7 @@ Run each production workflow check separately:
 go run ./cmd/fermentctl check formula-approval
 go run ./cmd/fermentctl check vessel-run-lifecycle
 go run ./cmd/fermentctl check observations-completion
+go run ./cmd/fermentctl check vessel-maintenance
 ```
 
 Each check creates a temporary snapshot directory, starts the real HTTP

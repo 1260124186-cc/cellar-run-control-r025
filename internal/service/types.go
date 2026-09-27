@@ -53,3 +53,10 @@ type ObservationInput struct {
 type FinishCleaningInput struct {
 	ExpectedVersion *int64
 }
+
+type ScheduleMaintenanceInput struct {
+	ExpectedVersion *int64
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Reason          string
+}
